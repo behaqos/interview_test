@@ -1,0 +1,102 @@
+apt-get update -y
+apt-get upgrade -y
+apt-get install sudo -y
+
+sudo apt-get install ca-certificates curl openssh-server postfix
+
+curl -sS https://packages.gitlab.com/install/repositories/gitlab/gitlab-ce/script.deb.sh | sudo bash
+
+sudo apt install gitlab-ce
+
+sudo vi /etc/gitlab/gitlab.rb -> external_url 'http://gitlab.local'
+
+sudo gitlab-ctl reconfigure
+
+sudo ufw allow ssh
+
+sudo ufw allow http
+
+
+GITLAB:
+testuser || root
+test@mail.com
+Password123321
+
+PROMETHEUS:
+
+# Add the Prometheus repository to your system's repository list:
+sudo apt-get update
+
+curl -LO https://github.com/prometheus/prometheus/releases/download/v2.42.0/prometheus-2.42.0.linux-amd64.tar.gz
+tar xvfz prometheus-*.tar.gz
+cd prometheus-*
+./prometheus --config.file=prometheus.yml &
+jobs -l
+
+GRAFANA:
+apt-get update
+
+Download the Grafana deb package from the official website:
+wget https://dl.grafana.com/oss/release/grafana_7.2.1_amd64.deb
+
+Install the deb package:
+sudo dpkg -i grafana_7.2.1_amd64.deb
+
+sudo systemctl start grafana-server
+sudo systemctl enable grafana-server
+sudo ufw allow 3000/tcp
+
+
+NGINX:
+
+apt-get install nginx
+
+sudo apt-get install certbot
+sudo certbot certonly --standalone -d- behaqosimi.ydns.eu
+ufw allow 443/tcp
+NGINX.CONF:
+# configuration file /etc/nginx/nginx.conf:
+user www-data;
+worker_processes auto;
+pid /run/nginx.pid;
+include /etc/nginx/modules-enabled/*.conf;
+
+events {
+	worker_connections 768;
+	# multi_accept on;
+}
+
+
+http {
+    server {
+        listen 80;
+        server_name behaqosimi.ydns.eu;
+        return 301 https://$host$request_uri;
+    }
+
+    server {
+        listen 443 ssl;
+        server_name behaqosimi.ydns.eu;
+
+        ssl_certificate /etc/letsencrypt/live/behaqosimi.ydns.eu/fullchain.pem;
+        ssl_certificate_key /etc/letsencrypt/live/behaqosimi.ydns.eu/privkey.pem;
+
+        location /grafana/ {
+            proxy_pass http://localhost:3000/;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+        }
+
+        location /prometheus/ {
+            proxy_pass http://localhost:9090/;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+        }
+
+        location /gitlab/ {
+            proxy_pass http://localhost:8081/;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+        }
+    }
+}

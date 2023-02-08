@@ -1,0 +1,105 @@
+---
+- name: Configure GitLab, Prometheus, Grafana, and Nginx
+  hosts: all
+  become: yes
+
+  tasks:
+#    - name: Update the package index
+#      apt:
+#        update_cache: yes
+
+    - name: Upgrade packages
+      apt:
+        upgrade: yes
+
+    - name: Install necessary packages
+      apt:
+        name:
+          - ca-certificates
+          - curl
+          - openssh-server
+          - postfix
+
+    - name: Add GitLab repository
+      shell: curl -sS https://packages.gitlab.com/install/repositories/gitlab/gitlab-ce/script.deb.sh | sudo bash
+
+    - name: Install GitLab
+      apt:
+        name: gitlab-ce
+
+    - name: Configure GitLab
+      lineinfile:
+        dest: /etc/gitlab/gitlab.rb
+        line: external_url 'http://behaqosimi.ydns.eu'
+      become: yes
+      tags: config
+
+    - name: Reconfigure GitLab
+      shell: sudo gitlab-ctl reconfigure
+
+    - name: Allow SSH connections
+      ufw:
+        rule: allow
+        port: ssh
+
+    - name: Allow HTTP connections
+      ufw:
+        rule: allow
+        port: http
+
+#    - name: Update the package index for Prometheus
+#      apt:
+#        update_cache: yes
+
+    - name: Download Prometheus
+      shell: |
+        curl -LO https://github.com/prometheus/prometheus/releases/download/v2.42.0/prometheus-2.42.0.linux-amd64.tar.gz
+        tar xvfz prometheus-*.tar.gz
+        cd prometheus-*
+        ./prometheus --config.file=prometheus.yml &
+        jobs -l
+
+#    - name: Update the package index for Grafana
+#      apt:
+#        update_cache: yes
+
+    - name: Add Grafana repository
+      apt_repository:
+        repo: "deb https://packages.grafana.com/oss/deb stable main"
+        state: present
+
+#    - name: Add GPG key
+#      apt_key:
+#        url: "https://packages.grafana.com/gpg.key"
+#        state: present
+
+    - name: Install Grafana
+      apt:
+        name: grafana
+        state: present
+
+    - name: Start Grafana service
+      service:
+        name: grafana-server
+        state: started
+        enabled: yes
+#    - name: Allow Grafana connections
+#      ufw:
+#        rule: allow
+#        port: 3000/tcp
+
+    - name: Install Nginx
+      apt:
+        name: nginx
+
+    - name: Install certbot
+      apt:
+        name: certbot
+
+#    - name: Get SSL certificate for behaqosimi.ydns.eu
+#      shell: sudo certbot certonly --standalone -d behaqosimi.ydns.eu
+
+    - name: Allow HTTPS connections
+      ufw:
+        rule: allow
+        port: 443/tcp
